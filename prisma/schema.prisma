@@ -1,0 +1,127 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String         @id @default(cuid())
+  name         String
+  email        String         @unique
+  passwordHash String
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  savedColleges SavedCollege[]
+  reviews      Review[]
+
+  @@map("users")
+}
+
+model College {
+  id               String         @id @default(cuid())
+  name             String
+  slug             String         @unique
+  location         String
+  city             String
+  state            String
+  description      String         @db.Text
+  type             String         // "Public" | "Private" | "Deemed"
+  establishedYear  Int
+  fees             Decimal        @db.Decimal(12, 2)
+  rating           Decimal        @db.Decimal(3, 2)
+  averagePlacement Decimal        @db.Decimal(12, 2)
+  highestPlacement Decimal        @db.Decimal(12, 2)
+  totalStudents    Int
+  imageUrl         String?
+  website          String?
+  accreditation    String?        // "NAAC A++" | "NAAC A+" | "NBA" etc
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  courses    Course[]
+  placements Placement[]
+  reviews    Review[]
+  savedBy    SavedCollege[]
+
+  // Indexes for search, filter, and sort performance
+  @@index([name])
+  @@index([location])
+  @@index([rating])
+  @@index([fees])
+  @@index([type])
+  @@index([state])
+  @@map("colleges")
+}
+
+model Course {
+  id        String   @id @default(cuid())
+  collegeId String
+  name      String
+  duration  String   // "4 years" | "2 years" | "3 years"
+  degree    String   // "B.Tech" | "MBA" | "M.Tech" | "BBA"
+  fees      Decimal  @db.Decimal(12, 2)
+  seats     Int?
+  createdAt DateTime @default(now())
+
+  college College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@index([collegeId])
+  @@map("courses")
+}
+
+model Placement {
+  id             String   @id @default(cuid())
+  collegeId      String
+  year           Int
+  averagePackage Decimal  @db.Decimal(12, 2)
+  highestPackage Decimal  @db.Decimal(12, 2)
+  placementRate  Decimal  @db.Decimal(5, 2) // percentage: 0-100
+  totalPlaced    Int?
+  topRecruiter   String?
+  createdAt      DateTime @default(now())
+
+  college College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  @@index([collegeId])
+  @@index([year])
+  @@map("placements")
+}
+
+model Review {
+  id        String   @id @default(cuid())
+  collegeId String
+  userId    String?
+  rating    Int      // 1-5
+  title     String
+  body      String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  college College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+  user    User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([collegeId])
+  @@index([userId])
+  @@map("reviews")
+}
+
+model SavedCollege {
+  id        String   @id @default(cuid())
+  userId    String
+  collegeId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  college College @relation(fields: [collegeId], references: [id], onDelete: Cascade)
+
+  // Database-level constraint: a user can save a college only once
+  @@unique([userId, collegeId])
+  @@index([userId])
+  @@map("saved_colleges")
+}
